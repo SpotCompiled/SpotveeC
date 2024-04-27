@@ -1,11 +1,11 @@
-# EeveeC
+# SpotveeC
 
 <h1 align="center">
 
-![GitHub all releases](https://img.shields.io/github/downloads/SpotCompiled/EeveeC/total?label=Downloads&style=for-the-badge) 
-![GitHub Repo stars](https://img.shields.io/github/stars/SpotCompiled/EeveeC?label=Stars&style=for-the-badge) 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/SpotCompiled/EeveeC?label=Release&style=for-the-badge) 
-![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/SpotCompiled/EeveeC?include_prereleases&label=PRE-Release&style=for-the-badge) 
+![GitHub all releases](https://img.shields.io/github/downloads/SpotCompiled/SpotveeC/total?label=Downloads&style=for-the-badge) 
+![GitHub Repo stars](https://img.shields.io/github/stars/SpotCompiled/SpotveeC?label=Stars&style=for-the-badge) 
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/SpotCompiled/SpotveeC?label=Release&style=for-the-badge) 
+![GitHub release (latest by date including pre-releases)](https://img.shields.io/github/v/release/SpotCompiled/SpotveeC?include_prereleases&label=PRE-Release&style=for-the-badge) 
 
 </h1>
 
@@ -24,9 +24,9 @@ You can add my repo to AltStore *Beta* or SideStore for automatic updates and co
 3. Now any "SpotC" Apps will show up in AltStore/SideStore under the "Browse" tab where you can install and update your apps easily from within AltStore/SideStore.<br/>
 
 ## How it's Made<br/>
-I post a new release everytime their is an EeveeSpotify Update, or there is a new major Spotify update that is compatible with the latest Spotilife. I get the vanilla Spotify IPA from IOS God's [Decrypted AppStore](https://armconverter.com/decryptedappstore/us/spotify) or from green verified links on [AppDB](https://appdb.to/app/ios/324684580), I will specify details on each release page. Then I download the latest EeveeSpotify .deb from Eevee's release page [here](https://github.com/whoeevee/EeveeSpotify/releases/latest) and Orion Runtime (iOS 14 - 16) off of Chariz [here](https://chariz.com/get/orion-runtime14) (it's a dependency) using [cydownload](https://github.com/borishonman/cydownload). I then inject the .deb into the IPA using [Sidloadly](https://sideloadly.io) or [Azule](https://github.com/Al4ise/Azule), and change the IPA version to the EeveeC version. I do not do anything else to the IPA (Unless otherwise specified in the release notes)... However please note that theoretically, IOSGod's decrypted app store could insert malware, same with Sideloadly/Azule, cydownload and Eevee's tweak, these are, however, considered trusted by the community and/or Open-Source. This is use at your own risk, and I am not responsible for *ANY* damage.
+I post a new release everytime their is an EeveeSpotify Update, or there is a new major Spotify update that is compatible with the latest Spotilife. I get the vanilla Spotify IPA from IOS God's [Decrypted AppStore](https://armconverter.com/decryptedappstore/us/spotify) or from green verified links on [AppDB](https://appdb.to/app/ios/324684580), I will specify details on each release page. Then I download the latest EeveeSpotify .deb from Eevee's release page [here](https://github.com/whoeevee/EeveeSpotify/releases/latest) and Orion Runtime (iOS 14 - 16) off of Chariz [here](https://chariz.com/get/orion-runtime14) (it's a dependency) using [cydownload](https://github.com/borishonman/cydownload). I then inject the .deb into the IPA using [Sidloadly](https://sideloadly.io) or [Azule](https://github.com/Al4ise/Azule), and change the IPA version to the SpotveeC version. I do not do anything else to the IPA (Unless otherwise specified in the release notes)... However please note that theoretically, IOSGod's decrypted app store could insert malware, same with Sideloadly/Azule, cydownload and Eevee's tweak, these are, however, considered trusted by the community and/or Open-Source. This is use at your own risk, and I am not responsible for *ANY* damage.
 
-Version Format is *EeveeC Version*\_*Spotify Version*<br/>
+Version Format is *SpotveeC Version*\_*Spotify Version*<br/>
 Ex. *v1.3.6*\_*v8.7.78*<br/>
 
 ## Credits:<br/>
