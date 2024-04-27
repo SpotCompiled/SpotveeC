@@ -32,6 +32,7 @@ Ex. *v1.3.6*\_*v8.7.78*<br/>
 ## Credits:<br/>
 [IOS God's Dycrypted App Store](https://armconverter.com/decryptedappstore/us/spotify) and [AppDB](https://appdb.to/app/ios/324684580)- *Dycrypted Vanilla Spotify IPA*<br/>
 [Eevee-  EeveeSpotify](https://github.com/whoeevee/EeveeSpotify) *For EeveeSpotify tweaked .deb*<br/>
+[Theos Team-  Orion Runtime (iOS 14 - 16)](https://chariz.com/get/orion-runtime14) *For Orion Runtime (iOS 14 - 16) tweaked .deb*<br/>
 [Am1nCmd- Spotify++](https://appdb.to/app/cydia/1900000540) *For ScreenShots*<br/>
 [@RobyRew](https://github.com/RobyRew) *For helping me setup a lot of things*
 ***
