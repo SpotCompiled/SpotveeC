@@ -1,0 +1,459 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      SPOTURL:
+        description: 'Direct URL to Spotify .ipa'
+        required: true
+      CHANGEVERSION:
+        description: 'SpotveeC Version Number'
+        required: false
+      USEACTIONSEEVEE:
+        description: 'Get EeveeSpotify from latest EeveeSpotfiy build action'
+        required: true
+        default: false
+        type: boolean
+      EEVEEVERSION:
+        description: 'EeveeSpotify Version'
+        required: false
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Set up variables
+      id: setup
+      run: |
+        echo "EEVEEVERSION=${{ github.event.inputs.EEVEEVERSION }}" >> $GITHUB_ENV
+        echo "CHANGEVERSION=${{ github.event.inputs.CHANGEVERSION }}" >> $GITHUB_ENV
+        echo "SPOTURL=${{ github.event.inputs.SPOTURL }}" >> $GITHUB_ENV
+        echo "VIRUSTOTALKEY=${{ secrets.VIRUSTOTALKEY }}" >> $GITHUB_ENV
+        
+    - name: Set Workflow URL
+      run: |
+        echo "WORKFLOWURL=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
+        echo "Workflow URL is $WORKFLOWURL"
+
+    - name: Install Pyzule
+      run: bash -c "$(curl https://raw.githubusercontent.com/yodaluca23/pyzule/main/install-pyzule.sh)"
+
+    - name: Set EEVEETAG if EEVEEVERSION not provided
+      if: ${{ github.event.inputs.EEVEEVERSION == '' }}
+      run: |
+        echo "EEVEEVERSION not provided, fetching latest release tag..."
+        EEVEETAG=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/latest | jq -r .tag_name)
+        echo "Latest release tag: $EEVEETAG"
+        echo "EEVEETAG=$EEVEETAG" >> $GITHUB_ENV
+
+    - name: Set EEVEETAG if tag provided
+      if: ${{ env.EEVEEVERSION != '' }}
+      id: fetch-tags
+      run: |
+        EEVEEVERSION="${{ env.EEVEEVERSION }}"
+        # Fetch all tags from the repository
+        tags=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/tags | jq -r '.[].name')
+        
+        # Find the tag that contains the EEVEEVERSION value
+        for tag in $tags; do
+          if [[ $tag == *"$EEVEEVERSION"* ]]; then
+            echo "EEVEETAG=$tag" >> $GITHUB_ENV
+            echo "EEVEETAG: ${{ env.EEVEETAG }}"
+            exit 0
+          fi
+        done
+
+        # If no matching tag is found, fail the job
+        echo "No matching tag found for EEVEEVERSION=$EEVEEVERSION"
+        exit 1
+        echo "Using Release Tag: $EEVEETAG"
+
+    - name: Create Build Components folder
+      run: mkdir -p "Build Components"
+
+    - name: Download Spotify IPA
+      run: |
+        echo "Downloading From: ${{ github.event.inputs.SPOTURL }}"
+        # Download the file using curl
+        curl -LJO "${{ github.event.inputs.SPOTURL }}"
+        downloaded_file=$(ls -t | head -n1)
+        mv "$downloaded_file" "Build Components/"
+        echo "spotifypath=Build Components/$downloaded_file" >> $GITHUB_ENV
+      env:
+        SPOTURL: ${{ github.event.inputs.SPOTURL }}
+      
+    - name: Upload Spotify IPA to VirusTotal
+      if: ${{ env.VIRUSTOTALKEY }}
+      uses: crazy-max/ghaction-virustotal@v4
+      id: vt-spotify
+      with:
+        files: "${{ env.spotifypath }}"
+        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        
+    - name: Set VirusTotal Analysis URL for Spotify IPA
+      if: ${{ env.VIRUSTOTALKEY }}
+      run: echo "VTVANILLASPOTIFY=${{ steps.vt-spotify.outputs.analysis }}" >> $GITHUB_ENV
+
+    - name: Download and process Orion
+      run: |
+        # Download the Packages file from repo.chariz.com
+        curl -sSL https://repo.chariz.com/Packages -o Packages
+    
+        # Use awk to find entries for dev.theos.orion14, Architecture: iphoneos-arm64, find the highest version
+        # extract the version, filename, SHA256 Hash, and MD5 hash
+        ORIONVERSION=$(awk 'BEGIN { RS = ""; FS = "\n"; highest_version = "" } $1 ~ /^Package: dev.theos.orion14$/ && $0 ~ /Architecture: iphoneos-arm64([^6]|$)/ { for (i = 1; i <= NF; i++) { if ($i ~ /^Version: /) { split($i, a, " "); version = a[2]; if (highest_version == "" || version > highest_version) { highest_version = version } } } } END { if (highest_version != "") print highest_version }' Packages)
+        echo "Orion Version Extracted: $ORIONVERSION"
+        FILENAME=$(awk 'BEGIN{RS="";FS="\n";highest_version=""} $1~/^Package: dev.theos.orion14$/ && $0~/Architecture: iphoneos-arm64/{current_version="";current_filename="";for(i=1;i<=NF;i++){if($i~/^Version: /){split($i,a," ");version=a[2];if(current_version==""||version>current_version){current_version=version}}else if($i~/^Filename: /){split($i,a," ");current_filename=a[2]}}if(highest_version==""||current_version>highest_version){highest_version=current_version;highest_filename=current_filename}} END{if(highest_version!="")print highest_filename}' Packages)
+        echo "Orion FileName Extracted: $FILENAME"
+        SHA256=$(awk 'BEGIN{RS="";FS="\n";highest_version="";sha256="noSHA"} $1~/^Package: dev.theos.orion14$/ && $0~/Architecture: iphoneos-arm64/{current_version="";sha256_found=0;for(i=1;i<=NF;i++){if($i~/^Version: /){split($i,a," ");version=a[2];if(current_version==""||version>current_version){current_version=version}}else if($i~/^SHA256: /){split($i,a," ");sha256=a[2];sha256_found=1}}if(highest_version==""||current_version>highest_version){highest_version=current_version;if(sha256_found==1){highest_sha256=sha256}else{highest_sha256="noSHA"}}}END{if(highest_version!="")print highest_sha256}' Packages)
+        echo "Orion SHA256 Hash Extracted: $SHA256"
+        MD5=$(awk 'BEGIN{RS="";FS="\n";highest_version="";md5sum="noMD5"} $1~/^Package: dev.theos.orion14$/ && $0~/Architecture: iphoneos-arm64/{current_version="";for(i=1;i<=NF;i++){if($i~/^Version: /){split($i,a," ");version=a[2];if(current_version==""||version>current_version){current_version=version}}else if($i~/^MD5Sum: /){split($i,a," ");md5sum=a[2]}}if(highest_version==""||current_version>highest_version){highest_version=current_version;highest_md5sum=md5sum}} END{if(highest_version!="")print highest_md5sum}' Packages)
+        echo "Orion MD5 Hash Extracted: $MD5"
+
+        echo "Downloading From: https://repo.chariz.com/$FILENAME"
+        # Download the file using curl
+        curl -LJO "https://repo.chariz.com/$FILENAME"
+        downloaded_file=$(ls -t | head -n1)
+        mv "$downloaded_file" "Build Components/"
+        orion="Build Components/$downloaded_file"
+        echo "orion path: $orion"
+
+        
+        #Check Hash
+        if [[ "${SHA256}" != "noSHA" ]]; then
+          echo "Expected SHA256 Hash: ${SHA256}"
+          calculated_sha256=$(shasum -a 256 "$orion" | awk '{print $1}')
+          echo "Calculated SHA256 Hash: $calculated_sha256"
+          if [[ "${calculated_sha256}" == "${SHA256}" ]]; then
+            echo "SHA256 matches. Continuing..."
+          else
+            echo "SHA256 does not match."
+            exit 1
+          fi
+        elif [[ "${MD5}" != "noMD5" ]]; then
+          echo "Expected MD5 Hash: ${MD5}"
+          calculated_md5=$(md5 -q "$orion" | awk '{print $1}')
+          echo "Calculated MD5 Hash: $calculated_md5"
+          if [[ "${calculated_md5}" == "${MD5}" ]]; then
+            echo "MD5 matches. Continuing..."
+          else
+            echo "MD5 does not match."
+            exit 1
+          fi
+        else
+          echo "Neither SHA256 nor MD5 is valid"
+          exit 1
+        fi
+
+        #CleanUp
+        rm -f Packages
+
+        #Set Env Varibles
+        echo "orion=Build Components/$downloaded_file" >> $GITHUB_ENV
+        echo "ORIONVERSION=$ORIONVERSION" >> $GITHUB_ENV
+        
+    - name: Upload Orion to VirusTotal
+      if: ${{ env.VIRUSTOTALKEY }}
+      uses: crazy-max/ghaction-virustotal@v4
+      id: vt-orion
+      with:
+        files: "${{ env.orion }}"
+        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        
+    - name: Set VirusTotal Analysis URL for Orion
+      if: ${{ env.VIRUSTOTALKEY }}
+      run: echo "VTORION=${{ steps.vt-orion.outputs.analysis }}" >> $GITHUB_ENV
+
+    - name: Download EeveeSpotify .deb file from releases
+      if: ${{ github.event.inputs.USEACTIONSEEVEE == 'false' }}
+      run: |
+        eevee_asset=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/tags/${{ env.EEVEETAG }} | jq -r '.assets[] | select(.name | startswith("com.eevee.spotify") and endswith("iphoneos-arm64.deb")).browser_download_url')
+        echo "Downloading From: $eevee_asset"
+        # Download the file using curl
+        curl -LJO "$eevee_asset"
+        downloaded_file=$(ls -t | head -n1)
+        mv "$downloaded_file" "Build Components/"
+        echo "eevee-arm64=Build Components/$downloaded_file" >> $GITHUB_ENV
+      env:
+        EEVEETAG: ${{ env.EEVEETAG }}
+
+    - name: Download EeveeSpotify .deb file from artifacts
+      if: ${{ github.event.inputs.USEACTIONSEEVEE == 'true' }}
+      run: |
+        workflow_run_id=$(curl -s "https://api.github.com/repos/whoeevee/EeveeSpotify/actions/workflows/build-swift.yml/runs?status=success&per_page=1" | jq -r '.workflow_runs[0].id')
+        echo "Workflow ID: $workflow_run_id"
+        eevee_asset=$(curl -sL https://api.github.com/repos/whoeevee/EeveeSpotify/actions/runs/$workflow_run_id/artifacts | jq -r '.artifacts[] | select(.name | test("debug|arm.deb") | not) | .archive_download_url')
+        echo "Downloading From: $eevee_asset"
+        curl -LJ -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$eevee_asset" -o "eeveespotfiyactionsasset.zip"
+        # Extract the downloaded zip file
+        unzip -q "eeveespotfiyactionsasset.zip" -d extracted_files
+        # Find the file you need within the extracted files
+        downloaded_file=$(find extracted_files -type f -name "*.deb" -print -quit)
+        # Move the found file to the desired directory
+        mv "$downloaded_file" "Build Components/"
+        # Clean up extracted files
+        rm -rf extracted_files
+        echo "eevee-arm64=Build Components/$(basename "$downloaded_file")" >> $GITHUB_ENV
+        echo "eeveeAssetLink=$eevee_asset" >> $GITHUB_ENV
+
+    
+    - name: Upload EeveeSpotify to VirusTotal
+      if: ${{ env.VIRUSTOTALKEY }}
+      uses: crazy-max/ghaction-virustotal@v4
+      id: vt-eevee
+      with:
+        files: "${{ env.eevee-arm64 }}"
+        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+
+    - name: Get Eevee release name
+      run: |
+        RELEASE_TITLE=$(curl -s "https://api.github.com/repos/whoeevee/EeveeSpotify/releases/tags/${{ env.EEVEETAG }}" | jq -r '.name')
+        echo "EEVEEVERSIONNAME=$RELEASE_TITLE" >> $GITHUB_ENV
+        
+    - name: Set VirusTotal Analysis URL for EeveeSpotify
+      if: ${{ env.VIRUSTOTALKEY }}
+      run: echo "VTEEVEE=${{ steps.vt-eevee.outputs.analysis }}" >> $GITHUB_ENV
+
+    - name: Download SwiftProtobuf .deb file
+      run: |
+        protobuf_asset=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/tags/${{ env.EEVEETAG }} | jq -r '.assets[] | select(.name | startswith("org.swift.protobuf.swiftprotobuf") and endswith("iphoneos-arm64.deb")).browser_download_url')
+        echo "Downloading From: $protobuf_asset"
+        # Download the file using curl
+        curl -LJO "$protobuf_asset"
+        downloaded_file=$(ls -t | head -n1)
+        mv "$downloaded_file" "Build Components/"
+        echo "swiftprotobuf=Build Components/$downloaded_file" >> $GITHUB_ENV
+        filename=$(basename "${protobuf_asset}")
+        protobuf_version=$(echo "${filename}" | sed -n 's/org.swift.protobuf.swiftprotobuf_\([^-]*\)_iphoneos-arm64.deb/\1/p')
+        echo "SWIFTPROTOBUFVERSION=${protobuf_version}" >> $GITHUB_ENV
+      env:
+        EEVEETAG: ${{ env.EEVEETAG }}
+    
+    - name: Upload SwiftProtobuf to VirusTotal
+      if: ${{ env.VIRUSTOTALKEY }}
+      uses: crazy-max/ghaction-virustotal@v4
+      id: vt-swiftprotobuf
+      with:
+        files: "${{ env.swiftprotobuf }}"
+        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        
+    - name: Set VirusTotal Analysis URL for SwiftProtobuf
+      if: ${{ env.VIRUSTOTALKEY }}
+      run: echo "VTSWIFTPROTOBUF=${{ steps.vt-swiftprotobuf.outputs.analysis }}" >> $GITHUB_ENV
+
+    - name: Read Spotify Version from Vanilla .ipa
+      run: |
+        cp "${{ env.spotifypath }}" "Build Components/SpotifyAnylises.zip"
+        unzip "Build Components/SpotifyAnylises.zip" -d "Build Components"
+        cd "Build Components"
+        cp Payload/Spotify.app/Info.plist "Info.plist"
+        echo "VANILLASPOTIFYVERSION=$(/usr/libexec/PlistBuddy -c "Print :SpotifyVersionShort" Info.plist)"
+        echo "VANILLASPOTIFYVERSION=$(/usr/libexec/PlistBuddy -c "Print :SpotifyVersionShort" Info.plist)" >> $GITHUB_ENV
+        echo "Vanilla Spotify Version: $VANILLASPOTIFYVERSION"
+
+        #Clean Up
+        rm -rf Payload
+        rm -f SpotifyAnylises.zip
+        rm -f Info.plist
+
+    - name: Set Change Version
+      id: set-change-version
+      run: |
+        # Retrieve the current CHANGEVERSION input from GitHub Actions
+        CHANGEVERSION="${{ github.event.inputs.CHANGEVERSION }}"
+        # If CHANGEVERSION is not provided, fetch the latest tag from GitHub API
+        if [ -z "$CHANGEVERSION" ]; then
+          latest_tag=$(curl -s https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r .tag_name)
+          # Extract the version number without the 'v' prefix
+          version=${latest_tag#v}
+          # Split the version number into major, minor, and patch components
+          IFS='.' read -r -a version_parts <<< "$version"
+          # Increment the patch version component (assuming the version is in format v2.1.3)
+          patch=$(( ${version_parts[2]} + 1 ))
+         # Construct the new version string without the 'v' prefix
+          new_version="${version_parts[0]}.${version_parts[1]}.$patch"
+          # Store the new version string in CHANGEVERSION
+          CHANGEVERSION="$new_version"
+        fi
+        # Store the final CHANGEVERSION in GitHub environment variable
+        echo "CHANGEVERSION=$CHANGEVERSION" >> $GITHUB_ENV
+        echo "Using ChangeVersion: $CHANGEVERSION"
+
+
+    - name: Set Components Path
+      run: echo "componentspath=Build Components" >> $GITHUB_ENV
+      
+    - name: Run Pyzule
+      run: |
+        pyzule -i "${{ env.spotifypath }}" -o "${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v{{ env.VANILLASPOTIFYVERSION }}.ipa" -v ${{ env.CHANGEVERSION }} -b com.yodaluca23.SpotveeC -f "${{ env.orion }}" "${{ env.swiftprotobuf }}" "${{ env.eevee-arm64 }}" -u -w -Nfix
+        echo "patchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v{{ env.VANILLASPOTIFYVERSION }}.ipa"
+        echo "patchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v{{ env.VANILLASPOTIFYVERSION }}.ipa" >> $GITHUB_ENV
+        echo "Patched Spotify .ipa Located: $patchedspotify"
+
+    - name: Upload SpotifyPatched.ipa to VirusTotal
+      if: ${{ env.VIRUSTOTALKEY }}
+      uses: crazy-max/ghaction-virustotal@v4
+      id: vt-spotv
+      with:
+        files: "${{ env.patchedspotify }}"
+        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        
+    - name: Set VirusTotal Analysis URL for SpotVeeC
+      if: ${{ env.VIRUSTOTALKEY }}
+      run: echo "VTSPOTV=${{ steps.vt-spotv.outputs.analysis }}" >> $GITHUB_ENV
+
+    - name: Extract and Prepare VirusTotal Links
+      run: |
+        VTSPOTV=$(echo "$VTSPOTV" | sed 's/.*\(https:\/\/.*\)/\1/')
+        echo "SpotveeC VT: $VTSPOTV"
+        echo "VTSPOTV=$VTSPOTV" >> $GITHUB_ENV
+        VTVANILLASPOTIFY=$(echo "$VTVANILLASPOTIFY" | sed 's/.*\(https:\/\/.*\)/\1/')
+        echo "Vanilla Spotify VT: $VTVANILLASPOTIFY"
+        echo "VTVANILLASPOTIFY=$VTVANILLASPOTIFY" >> $GITHUB_ENV
+        VTEEVEE=$(echo "$VTEEVEE" | sed 's/.*\(https:\/\/.*\)/\1/')
+        echo "EeveeSpotify VT: $VTEEVEE"
+        echo "VTEEVEE=$VTEEVEE" >> $GITHUB_ENV
+        VTORION=$(echo "$VTORION" | sed 's/.*\(https:\/\/.*\)/\1/')
+        echo "Orion VT: $VTORION"
+        echo "VTORION=$VTORION" >> $GITHUB_ENV
+        VTSWIFTPROTOBUF=$(echo "$VTSWIFTPROTOBUF" | sed 's/.*\(https:\/\/.*\)/\1/')
+        echo "SwiftProtobuf VT: $VTSWIFTPROTOBUF"
+        echo "VTSWIFTPROTOBUF=$VTSWIFTPROTOBUF" >> $GITHUB_ENV
+
+    - name: Construct ChangeLog Pt.1
+      run: |
+        echo "## ChangeLog" > changelog.txt
+        echo "- Updated [EeveeSpotify](https://github.com/whoeevee/EeveeSpotify) to ${{ env.EEVEEVERSIONNAME }} </br>" >> changelog.txt
+        echo "$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/tags/${{ env.EEVEETAG }} | jq -r '.body' | sed -n 's/^\* //p' | sed 's/^/- (EeveeSpotify) /')" >> changelog.txt
+        echo "- Updated Spotify to version ${{ env.VANILLASPOTIFYVERSION }} </br>" >> changelog.txt
+        
+        # Hyperlink mentions of issues:
+        tail -n +2 changelog.txt | sed -E 's/#([0-9]+)/[#\1](https:\/\/github.com\/whoeevee\/EeveeSpotify\/issues\/\1)/g' > temp_changelog.txt
+        head -n 1 changelog.txt > final_changelog.txt
+        cat temp_changelog.txt >> final_changelog.txt
+        mv final_changelog.txt changelog.txt
+        rm temp_changelog.txt
+        
+        echo "***" >> changelog.txt
+        echo "Vanilla IPA decrypted using [a fork of BagBak](https://github.com/TbhLovers/bagbak), on my personal MacBook Air and Jailbroken iPhone XR running [Dopamine](https://github.com/opa334/Dopamine), feel free to contact me with questions about this environment." >> changelog.txt
+    
+    - name: Construct ChangeLog Pt.2 (Add EeveeSpotify Workflow Link)
+      if: ${{ github.event.inputs.USEACTIONSEEVEE == 'true' }}
+      run: |
+        echo "The EeveeSpotify .deb was taken from the [latest Build workflow](${{ env.eeveeAssetLink }})." >> changelog.txt
+    
+    - name: Construct ChangeLog Pt.3 (Add App Details and Workflow Link)
+      run: |
+        echo "App .ipa modified and tweaks injected using [my fork](https://github.com/yodaluca23/pyzule) of [Pyzule](https://github.com/asdfzxcvbn/pyzule) with [the github Action Workflow.](${{ env.WORKFLOWURL }}) </br>" >> changelog.txt
+    
+    - name: Construct ChangeLog Pt.4 (Add Version Details & VirusTotal Results)
+      if: ${{ env.VIRUSTOTALKEY != '' }}
+      run: |
+        echo "<details>" >> changelog.txt
+        echo "<summary>Version Details & VirusTotal Results</summary>" >> changelog.txt
+        echo "<br>" >> changelog.txt
+        echo "<p>Spotify Version: v${{ env.VANILLASPOTIFYVERSION }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTVANILLASPOTIFY }}'>Vanilla Spotify VirusTotal</a></p>" >> changelog.txt
+        echo "<p>EeveeSpotify Version: ${{ env.EEVEEVERSIONNAME }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTEEVEE }}'>EeveeSpotify .deb VirusTotal</a></p>" >> changelog.txt
+        echo "<p>Orion Runtime (iOS 14 - 16) Version: ${{ env.ORIONVERSION }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTORION }}'>Orion Runtime (iOS 14 - 16) .deb VirusTotal</a></p>" >> changelog.txt
+        echo "<p>SwiftProtobuf Framework Version: ${{ env.SWIFTPROTOBUFVERSION }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTSWIFTPROTOBUF }}'>SwiftProtobuf Framework .deb VirusTotal</a></p>" >> changelog.txt
+        echo "<p>SpotveeC Version: v${{ env.CHANGEVERSION }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTSPOTV }}'>SpotveeC VirusTotal</a></p>" >> changelog.txt
+        echo "</details>" >> changelog.txt
+
+    - name: Create Draft Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: "v${{ env.CHANGEVERSION }}"
+        name: "SpotveeC v${{ env.CHANGEVERSION }}"
+        draft: true
+        body_path: changelog.txt
+        files: "${{ env.patchedspotify }}"
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Download AltStore Repo.json
+      run: curl "https://raw.githubusercontent.com/SpotCompiled/SpotC-AltStore-Repo/main/AltStore%20Repo.json" -o ./AltStoreRepo.json
+
+    - name: Calculate SpotveeC Filesize
+      run: |
+        FILE_SIZE=$(stat -f%z "${{ env.patchedspotify }}")
+        echo "SpotveeC File Size: $FILE_SIZE"
+        echo "SPOTVSIZE=$FILE_SIZE" >> $GITHUB_ENV
+
+    - name: Fetch the first bullet point from the EeveeSpotify release changelog
+      id: fetch-changelog
+      run: |
+        BULLET_POINT=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/tags/${{ env.EEVEETAG }} | jq -r '.body' | grep -m 1 -o '^\*.*' | sed 's/^\* //' | tr -d '"' | tr -d '\r')
+        echo "BULLET_POINT=$BULLET_POINT" >> $GITHUB_ENV
+
+    - name: Set ALTSTORECHANGELOG environment variable
+      run: |
+        ALTSTORECHANGELOG="Updated EeveeSpotify to ${{ env.EEVEEVERSIONNAME }}, fixed several bugs. ${{ env.BULLET_POINT }}\n\n More Info:\n https://github.com/SpotCompiled/SpotveeC/releases/tag/v${{ env.CHANGEVERSION }}"
+        echo "ALTSTORECHANGELOG=$ALTSTORECHANGELOG" >> $GITHUB_ENV
+      
+    - name: Update AltStore Repo.json
+      run: |
+        jq --arg CHANGEVERSION "${{ env.CHANGEVERSION }}" \
+           --arg CURRENTDATE "$(date +%Y-%-m-%d)" \
+           --arg SIZE "${{ env.SPOTVSIZE }}" \
+           --arg ALTSTORECHANGELOG "${{ env.ALTSTORECHANGELOG }}" \
+           --arg VANILLASPOTIFYVERSION "${{ env.VANILLASPOTIFYVERSION }}" \
+           --arg EEVEEVERSIONNAME "${{ env.EEVEEVERSIONNAME }}" \
+           --arg ORIONVERSION "${{ env.ORIONVERSION }}" \
+           --arg SWIFTPROTOBUFVERSION "${{ env.SWIFTPROTOBUFVERSION }}" \
+           '
+           (.apps[] | select(.name == "SpotveeC") | .version) = $CHANGEVERSION |
+           (.apps[] | select(.name == "SpotveeC") | .versionDate) = $CURRENTDATE |
+           (.apps[] | select(.name == "SpotveeC") | .size) = ($SIZE | tonumber) |
+           (.apps[] | select(.name == "SpotveeC") | .changelog) = $ALTSTORECHANGELOG |
+           (.apps[] | select(.name == "SpotveeC") | .versionDescription) = $ALTSTORECHANGELOG |
+           (.apps[] | select(.name == "SpotveeC") | .downloadURL) = "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION).ipa" |
+           (.apps[] | select(.name == "SpotveeC") | .versions) |= [{
+              "version": $CHANGEVERSION,
+              "date": $CURRENTDATE,
+              "localizedDescription": $ALTSTORECHANGELOG,
+              "downloadURL": "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION).ipa",
+              "size": ($SIZE | tonumber),
+              "minOSVersion": "15.0"
+           }] + . |
+           (.apps[] | select(.name == "SpotveeC") | .information) = [
+              {
+                  "item": "Spotify",
+                  "version": "v\($VANILLASPOTIFYVERSION)",
+                  "authors": "Spotify AB",
+                  "url": "https://www.spotify.com"
+              },
+              {
+                  "item": "EeveeSpotify",
+                  "version": $EEVEEVERSIONNAME,
+                  "authors": "Whoeevee & Asdfzxcvbn",
+                  "url": "https://github.com/whoeevee/EeveeSpotify"
+              },
+              {
+                  "item": "Orion Runtime",
+                  "version": "v\($ORIONVERSION)",
+                  "authors": "Theos Team",
+                  "url": "https://orion.theos.dev"
+              },
+              {
+                  "item": "SwiftProtobuf Framework",
+                  "version": "v\($SWIFTPROTOBUFVERSION)",
+                  "authors": "Apple Inc.",
+                  "url": "https://github.com/apple/swift-protobuf"
+              }
+           ]
+           ' AltStoreRepo.json > AltStoreRepo_updated.json
+          mv AltStoreRepo_updated.json AltStoreRepo.json
+    
+    - name: Upload updated AltStore Repo.json as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: UpdatedAltStoreRepo
+        path: AltStoreRepo.json
