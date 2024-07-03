@@ -53,18 +53,18 @@ jobs:
       if: ${{ env.EEVEEVERSION != '' }}
       id: fetch-tags
       run: |
+        EEVEEVERSION="${{ env.EEVEEVERSION }}"
         # Fetch all tags from the repository
         tags=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/tags | jq -r '.[].name')
         
         # Find the tag that contains the EEVEEVERSION value
         for tag in $tags; do
-          if [[ $tag == *"${{ env.EEVEEVERSION }}"* ]]; then
+          if [[ $tag == *"$EEVEEVERSION"* ]]; then
             echo "EEVEETAG=$tag" >> $GITHUB_ENV
             echo "EEVEETAG: ${{ env.EEVEETAG }}"
             exit 0
           fi
         done
-
         # If no matching tag is found, fail the job
         echo "No matching tag found for EEVEEVERSION=$EEVEEVERSION"
         exit 1
