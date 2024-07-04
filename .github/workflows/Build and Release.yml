@@ -257,7 +257,7 @@ jobs:
         rm -f Info.plist
 
     - name: Check if Vanilla Spotify was updated
-      run: echo "VANSPOTISUPDATED=$(curl -s https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r '.body' | grep -q "Spotify to version \${{ env.VANILLASPOTIFYVERSION }}" && echo false || echo true)" >> $GITHUB_ENV
+      run: echo "VANSPOTISUPDATED=$(curl -s https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r '.body' | grep -q "Spotify to version ${{ env.VANILLASPOTIFYVERSION }}" && echo false || echo true)" >> $GITHUB_ENV
       
     - name: Set Change Version
       id: set-change-version
