@@ -338,7 +338,7 @@ jobs:
       run: |
         echo "$(curl -s "https://api.github.com/repos/whoeevee/EeveeSpotify/commits?since=$(curl -s https://api.github.com/repos/whoeevee/EeveeSpotify/releases/latest | jq -r .published_at)" | jq -r '.[].commit.message' | grep -Ev "update: repo|Merge branch .+ of .+ into .+" | sed 's/^/- (EeveeSpotify) /')" >> changelog.txt
 
-    - name: Contruct ChangeLog Pt.3 If Spotify was updated add to changelog
+    - name: Contruct ChangeLog Pt.3 (Spotify was updated? add to changelog)
       if: ${{ env.VANSPOTISUPDATED == 'true' }}
       run: echo "- Updated Spotify to version ${{ env.VANILLASPOTIFYVERSION }} </br>" >> changelog.txt
         
