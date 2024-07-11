@@ -200,7 +200,7 @@ jobs:
       run: |
         workflow_run_id=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "https://api.github.com/repos/${{ env.EEVEEREPO }}/actions/workflows/build-swift.yml/runs?status=success&per_page=1" | jq -r '.workflow_runs[0].id')
         echo "Workflow ID: $workflow_run_id"
-        eevee_asset=$(curl -sL https://api.github.com/repos/${{ env.EEVEEREPO }}/actions/runs/$workflow_run_id/artifacts | jq -r '.artifacts[] | select(.name | test("debug|arm.deb") | not) | .archive_download_url')
+        eevee_asset=$(curl -sL -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ env.EEVEEREPO }}/actions/runs/$workflow_run_id/artifacts | jq -r '.artifacts[] | select(.name | test("debug|arm.deb") | not) | .archive_download_url')
         echo "Downloading From: $eevee_asset"
         curl -LJ -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" "$eevee_asset" -o "eeveespotfiyactionsasset.zip"
         # Extract the downloaded zip file
@@ -275,7 +275,8 @@ jobs:
         rm -f Info.plist
 
     - name: Check if Vanilla Spotify was updated
-      run: echo "VANSPOTISUPDATED=$(curl -s https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r '.body' | grep -q "Spotify to version ${{ env.VANILLASPOTIFYVERSION }}" && echo false || echo true)" >> $GITHUB_ENV
+      run: |
+        echo "VANSPOTISUPDATED=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r '.body' | grep -q "Spotify to version ${{ env.VANILLASPOTIFYVERSION }}" && echo false || echo true)" >> $GITHUB_ENV
       
     - name: Set Change Version
       id: set-change-version
@@ -284,7 +285,7 @@ jobs:
         CHANGEVERSION="${{ github.event.inputs.CHANGEVERSION }}"
         # If CHANGEVERSION is not provided, fetch the latest tag from GitHub API
         if [ -z "$CHANGEVERSION" ]; then
-          latest_tag=$(curl -s https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r .tag_name)
+          latest_tag=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/SpotCompiled/SpotveeC/releases/latest | jq -r .tag_name)
           # Extract the version number without the 'v' prefix
           version=${latest_tag#v}
           # Split the version number into major, minor, and patch components
@@ -376,7 +377,7 @@ jobs:
       if: ${{ github.event.inputs.USEACTIONSEEVEE == 'true' }}
       run: |
         assetnoZIP=$(echo "${{ env.eeveeAssetLink }}" | sed 's/\/zip$//')
-        RUN_ID=$(curl -s $assetnoZIP | jq -r .workflow_run.id)
+        RUN_ID=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" $assetnoZIP | jq -r .workflow_run.id)
         eeveeUserAssetLink=$(echo "${{ env.eeveeAssetLink }}" | sed -E "s|https://api.github.com/repos/([^/]+)/([^/]+)/actions/artifacts/([0-9]+)/zip|https://github.com/\1/\2/actions/runs/${RUN_ID}/artifacts/\3|")
         echo "The EeveeSpotify .deb was taken from the [latest Build workflow](${eeveeUserAssetLink})." >> changelog.txt
     
