@@ -40,9 +40,6 @@ jobs:
       run: |
         echo "WORKFLOWURL=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
         echo "Workflow URL is $WORKFLOWURL"
-        
-    - name: Install Pyzule
-      run: bash -c "$(curl https://raw.githubusercontent.com/yodaluca23/pyzule/main/install-pyzule.sh)"
 
     - name: Set EeveeSpotify Repo if given
       if: ${{ github.event.inputs.EEVEEREPO != '' }}
@@ -55,6 +52,9 @@ jobs:
       run: |
         EEVEEREPO=$(echo "${{ env.EEVEEREPO }}")
         echo "EEVEEREPO=$EEVEEREPO" >> $GITHUB_ENV
+        
+    - name: Install Pyzule
+      run: bash -c "$(curl https://raw.githubusercontent.com/yodaluca23/pyzule/main/install-pyzule.sh)"
 
     - name: Set EEVEETAG if EEVEEVERSION not provided
       if: ${{ github.event.inputs.EEVEEVERSION == '' }}
