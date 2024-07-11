@@ -50,7 +50,8 @@ jobs:
     - name: Set EeveeSpotify Repo if not given
       if: ${{ github.event.inputs.EEVEEREPO == '' }}
       run: |
-        EEVEEREPO=$(echo "${{ env.EEVEEREPO }}")
+        
+        EEVEEREPO=$(echo "whoeevee/EeveeSpotify")
         echo "EEVEEREPO=$EEVEEREPO" >> $GITHUB_ENV
         
     - name: Install Pyzule
