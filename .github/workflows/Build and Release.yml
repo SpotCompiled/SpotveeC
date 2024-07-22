@@ -424,6 +424,8 @@ jobs:
         echo "<br><a href='${{ env.VTSWIFTPROTOBUF }}'>SwiftProtobuf Framework .deb VirusTotal</a></p>" >> changelog.txt
         echo "<p>SpotveeC Version: v${{ env.CHANGEVERSION }}" >> changelog.txt
         echo "<br><a href='${{ env.VTSPOTV }}'>SpotveeC VirusTotal</a></p>" >> changelog.txt
+        echo "<p>AltStore SpotveeC Version: v${{ env.CHANGEVERSION }}" >> changelog.txt
+        echo "<br><a href='${{ env.VTALTSPOTV }}'>AltStore SpotveeC VirusTotal</a></p>" >> changelog.txt
         echo "</details>" >> changelog.txt
 
     - name: Create Draft Release
