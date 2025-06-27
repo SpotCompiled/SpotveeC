@@ -557,7 +557,7 @@ jobs:
               "localizedDescription": $ALTSTORECHANGELOG,
               "downloadURL": "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION)_ALTSTORESOURCE_ONLY.ipa",
               "size": ($SIZE | tonumber),
-              "minOSVersion": "15.0"
+              "minOSVersion": "16.1"
            }] + . |
            (.apps[] | select(.name == "SpotveeC") | .information) = [
               {
@@ -620,7 +620,7 @@ jobs:
               "localizedDescription": $ALTSTORECHANGELOG,
               "downloadURL": "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION).ipa",
               "size": ($SIZE | tonumber),
-              "minOSVersion": "15.0"
+              "minOSVersion": "16.1"
            }] + . |
            (.apps[] | select(.name == "SpotveeC") | .information) = [
               {
