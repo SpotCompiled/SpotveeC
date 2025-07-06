@@ -274,6 +274,10 @@ jobs:
         echo "VANILLASPOTIFYVERSION=$(/usr/libexec/PlistBuddy -c "Print :SpotifyVersionShort" Info.plist)" >> $GITHUB_ENV
         echo "Vanilla Spotify Version: $VANILLASPOTIFYVERSION"
 
+        MIN_IOS_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' Info.plist)
+        echo "MIN_IOS_VERSION=$MIN_IOS_VERSION" >> $GITHUB_ENV
+        echo "Minimum iOS Version: $MIN_IOS_VERSION"
+
         (echo "{"; find ./ -name "Info.plist" | while read file; do plutil -p "$file" 2>/dev/null | grep -E "NS.*Description" | sed -E 's/^\s*"([^"]+)".*"(.*)"$/"\1": "\2",/'; done | sed 's/ =>/:/g' | sed 's/\(.*\),/\1/' | tr '\n' ',' | sed 's/,$//' | sed 's/,/,\n/g'; echo "}") > NSDescriptions.json
         (codesign -d --entitlements :- Payload/Spotify.app | xmllint --format - | sed -n 's/.*<key>\(.*\)<\/key>.*/\1/p'; for EXT in Payload/Spotify.app/PlugIns/*.appex; do [ -d "$EXT" ] && codesign -d --entitlements :- "$EXT" | xmllint --format - | sed -n 's/.*<key>\(.*\)<\/key>.*/\1/p'; done) | sort | uniq | jq -R -s 'split("\n") | map(select(length > 0))' > Entitlements.json
         
@@ -537,6 +541,7 @@ jobs:
            --arg SIZE "${{ env.ALTSPOTVSIZE }}" \
            --arg ALTSTORECHANGELOG "${{ env.ALTSTORECHANGELOG }}" \
            --arg VANILLASPOTIFYVERSION "${{ env.VANILLASPOTIFYVERSION }}" \
+           --arg MINVERSION "${{ env.MIN_IOS_VERSION }}" \
            --arg EEVEEVERSIONNAME "${{ env.EEVEEVERSIONNAME }}" \
            --argjson PRIVKEYS "$PRIVACYKEYS" \
            --argjson ENTITLEMENTS "$ENTITLE" \
@@ -547,6 +552,7 @@ jobs:
            (.apps[] | select(.name == "SpotveeC") | .versionDate) = $CURRENTDATE |
            (.apps[] | select(.name == "SpotveeC") | .size) = ($SIZE | tonumber) |
            (.apps[] | select(.name == "SpotveeC") | .changelog) = $ALTSTORECHANGELOG |
+           (.apps[] | select(.name == "SpotveeC") | .minOSVersion) = $MINVERSION |
            (.apps[] | select(.name == "SpotveeC") | .appPermissions.privacy) = $PRIVKEYS |
            (.apps[] | select(.name == "SpotveeC") | .appPermissions.entitlements) = $ENTITLEMENTS |
            (.apps[] | select(.name == "SpotveeC") | .versionDescription) = $ALTSTORECHANGELOG |
@@ -557,7 +563,7 @@ jobs:
               "localizedDescription": $ALTSTORECHANGELOG,
               "downloadURL": "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION)_ALTSTORESOURCE_ONLY.ipa",
               "size": ($SIZE | tonumber),
-              "minOSVersion": "16.1"
+              "minOSVersion": $MINVERSION
            }] + . |
            (.apps[] | select(.name == "SpotveeC") | .information) = [
               {
@@ -604,6 +610,7 @@ jobs:
            --arg SIZE "${{ env.SPOTVSIZE }}" \
            --arg ALTSTORECHANGELOG "${{ env.ALTSTORECHANGELOG }}" \
            --arg VANILLASPOTIFYVERSION "${{ env.VANILLASPOTIFYVERSION }}" \
+           --arg MINVERSION "${{ env.MIN_IOS_VERSION }}" \
            --arg EEVEEVERSIONNAME "${{ env.EEVEEVERSIONNAME }}" \
            --arg ORIONVERSION "${{ env.ORIONVERSION }}" \
            --arg SWIFTPROTOBUFVERSION "${{ env.SWIFTPROTOBUFVERSION }}" \
@@ -612,6 +619,7 @@ jobs:
            (.apps[] | select(.name == "SpotveeC") | .versionDate) = $CURRENTDATE |
            (.apps[] | select(.name == "SpotveeC") | .size) = ($SIZE | tonumber) |
            (.apps[] | select(.name == "SpotveeC") | .changelog) = $ALTSTORECHANGELOG |
+           (.apps[] | select(.name == "SpotveeC") | .minOSVersion) = $MINVERSION |
            (.apps[] | select(.name == "SpotveeC") | .versionDescription) = $ALTSTORECHANGELOG |
            (.apps[] | select(.name == "SpotveeC") | .downloadURL) = "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION).ipa" |
            (.apps[] | select(.name == "SpotveeC") | .versions) |= [{
@@ -620,7 +628,7 @@ jobs:
               "localizedDescription": $ALTSTORECHANGELOG,
               "downloadURL": "https://github.com/SpotCompiled/SpotveeC/releases/download/v\($CHANGEVERSION)/SpotveeC.v\($CHANGEVERSION)_v\($VANILLASPOTIFYVERSION).ipa",
               "size": ($SIZE | tonumber),
-              "minOSVersion": "16.1"
+              "minOSVersion": $MINVERSION
            }] + . |
            (.apps[] | select(.name == "SpotveeC") | .information) = [
               {
