@@ -34,12 +34,13 @@ jobs:
         echo "EEVEEVERSION=${{ github.event.inputs.EEVEEVERSION }}" >> $GITHUB_ENV
         echo "CHANGEVERSION=${{ github.event.inputs.CHANGEVERSION }}" >> $GITHUB_ENV
         echo "SPOTURL=${{ github.event.inputs.SPOTURL }}" >> $GITHUB_ENV
-        echo "VIRUSTOTALKEY=${{ secrets.VIRUSTOTALKEY }}" >> $GITHUB_ENV
+        echo "VT_ENABLED=${{ secrets.VIRUSTOTALKEY != '' }}" >> $GITHUB_ENV
+        echo "CATBOXHASH_ENABLED=${{ secrets.CATBOXHASH != '' }}" >> $GITHUB_ENV
         
     - name: Set Workflow URL
       run: |
         echo "WORKFLOWURL=https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_ENV
-        echo "Workflow URL is $WORKFLOWURL"
+        echo "Workflow URL is ${{ env.WORKFLOWURL }}"
 
     - name: Set EeveeSpotify Repo if given
       if: ${{ github.event.inputs.EEVEEREPO != '' }}
@@ -66,8 +67,8 @@ jobs:
       run: |
         echo "EEVEEVERSION not provided, fetching latest release tag..."
         EEVEETAG=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" https://api.github.com/repos/${{ env.EEVEEREPO }}/releases/latest | jq -r .tag_name)
-        echo "Latest release tag: $EEVEETAG"
         echo "EEVEETAG=$EEVEETAG" >> $GITHUB_ENV
+        echo "Latest release tag: ${{ env.EEVEETAG }}"
         
     - name: Set EEVEETAG if tag provided
       if: ${{ env.EEVEEVERSION != '' }}
@@ -88,7 +89,7 @@ jobs:
         # If no matching tag is found, fail the job
         echo "No matching tag found for EEVEEVERSION=$EEVEEVERSION"
         exit 1
-        echo "Using Release Tag: $EEVEETAG"
+        echo "Using Release Tag: ${{ env.EEVEETAG }}"
 
     - name: Create Build Components folder
       run: mkdir -p "Build Components"
@@ -105,15 +106,15 @@ jobs:
         SPOTURL: ${{ github.event.inputs.SPOTURL }}
       
     - name: Upload Spotify IPA to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-spotify
       with:
         files: "${{ env.spotifypath }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
         
     - name: Set VirusTotal Analysis URL for Spotify IPA
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTVANILLASPOTIFY=${{ steps.vt-spotify.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Download and process Orion
@@ -175,15 +176,15 @@ jobs:
         echo "ORIONVERSION=$ORIONVERSION" >> $GITHUB_ENV
         
     - name: Upload Orion to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-orion
       with:
         files: "${{ env.orion }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
         
     - name: Set VirusTotal Analysis URL for Orion
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTORION=${{ steps.vt-orion.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Download EeveeSpotify .deb file from releases
@@ -220,12 +221,12 @@ jobs:
 
     
     - name: Upload EeveeSpotify to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-eevee
       with:
         files: "${{ env.eevee-arm64 }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
 
     - name: Get Eevee release name
       run: |
@@ -233,7 +234,7 @@ jobs:
         echo "EEVEEVERSIONNAME=$RELEASE_TITLE" >> $GITHUB_ENV
         
     - name: Set VirusTotal Analysis URL for EeveeSpotify
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTEEVEE=${{ steps.vt-eevee.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Download SwiftProtobuf .deb file
@@ -252,15 +253,15 @@ jobs:
         EEVEETAG: ${{ env.EEVEETAG }}
     
     - name: Upload SwiftProtobuf to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-swiftprotobuf
       with:
         files: "${{ env.swiftprotobuf }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
         
     - name: Set VirusTotal Analysis URL for SwiftProtobuf
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTSWIFTPROTOBUF=${{ steps.vt-swiftprotobuf.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Read Spotify information from vanilla .ipa
@@ -275,7 +276,7 @@ jobs:
 
         MIN_IOS_VERSION=$(/usr/libexec/PlistBuddy -c 'Print :MinimumOSVersion' Info.plist)
         echo "MIN_IOS_VERSION=$MIN_IOS_VERSION" >> $GITHUB_ENV
-        echo "Minimum iOS Version: $MIN_IOS_VERSION"
+        echo "Minimum iOS Version: ${{ env.MIN_IOS_VERSION }}"
 
         (echo "{"; find ./ -name "Info.plist" | while read file; do plutil -p "$file" 2>/dev/null | grep -E "NS.*Description" | sed -E 's/^\s*"([^"]+)".*"(.*)"$/"\1": "\2",/'; done | sed 's/ =>/:/g' | sed 's/\(.*\),/\1/' | tr '\n' ',' | sed 's/,$//' | sed 's/,/,\n/g'; echo "}") > NSDescriptions.json
         (codesign -d --entitlements :- Payload/Spotify.app | xmllint --format - | sed -n 's/.*<key>\(.*\)<\/key>.*/\1/p'; for EXT in Payload/Spotify.app/PlugIns/*.appex; do [ -d "$EXT" ] && codesign -d --entitlements :- "$EXT" | xmllint --format - | sed -n 's/.*<key>\(.*\)<\/key>.*/\1/p'; done) | sort | uniq | jq -R -s 'split("\n") | map(select(length > 0))' > Entitlements.json
@@ -359,18 +360,18 @@ jobs:
         Cyan -i "${{ env.spotifypath }}" -o "${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}.ipa" -v ${{ env.CHANGEVERSION }} -f "${{ env.orion }}" "${{ env.swiftprotobuf }}" "${{ env.eevee-arm64 }}" -u -w
         echo "patchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}.ipa"
         echo "patchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}.ipa" >> $GITHUB_ENV
-        echo "Patched Spotify .ipa Located: $patchedspotify"
+        echo "Patched Spotify .ipa Located: ${{ env.patchedspotify }}"
 
     - name: Upload SpotifyPatched.ipa to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-spotv
       with:
         files: "${{ env.patchedspotify }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
         
     - name: Set VirusTotal Analysis URL for SpotVeeC
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTSPOTV=${{ steps.vt-spotv.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Run AltStore Cyan
@@ -378,32 +379,36 @@ jobs:
         Cyan -i "${{ env.spotifypath }}" -o "${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}_ALTSTORESOURCE_ONLY.ipa" -v ${{ env.CHANGEVERSION }} -b com.yodaluca23.SpotveeC -f "${{ env.orion }}" "${{ env.swiftprotobuf }}" "${{ env.eevee-arm64 }}" -u -w
         echo "altpatchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}_ALTSTORESOURCE_ONLY.ipa"
         echo "altpatchedspotify=${{ env.componentspath }}/SpotveeC.v${{ env.CHANGEVERSION }}_v${{ env.VANILLASPOTIFYVERSION }}_ALTSTORESOURCE_ONLY.ipa" >> $GITHUB_ENV
-        echo "AltStore Patched Spotify .ipa Located: $altpatchedspotify"
+        echo "AltStore Patched Spotify .ipa Located: ${{ env.altpatchedspotify }}"
 
     - name: Upload AltSpotifyPatched.ipa to VirusTotal
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       uses: crazy-max/ghaction-virustotal@v4
       id: vt-altspotv
       with:
         files: "${{ env.altpatchedspotify }}"
-        vt_api_key: ${{ env.VIRUSTOTALKEY }}
+        vt_api_key: ${{ secrets.VIRUSTOTALKEY }}
 
     - name: Set VirusTotal Analysis URL for AltSpotVeeC
-      if: ${{ env.VIRUSTOTALKEY }}
+      if: ${{ env.VT_ENABLED }}
       run: echo "VTALTSPOTV=${{ steps.vt-altspotv.outputs.analysis }}" >> $GITHUB_ENV
 
     - name: Upload to Catbox (With Hash)
-      if: ${{ secrets.CATBOXHASH }}
+      if: ${{ env.CATBOXHASH_ENABLED }}
       run: |
         echo "RELEASEURL=$(curl -F "reqtype=fileupload" -F "userhash=${{ secrets.CATBOXHASH }}" -F "fileToUpload=@${{ env.patchedspotify }}" https://catbox.moe/user/api.php)" >> $GITHUB_ENV
         echo "RELEASEURLALTSTORE=$(curl -F "reqtype=fileupload" -F "userhash=${{ secrets.CATBOXHASH }}" -F "fileToUpload=@${{ env.altpatchedspotify }}" https://catbox.moe/user/api.php)" >> $GITHUB_ENV
-
+        echo "Standard Release Download URL: ${{ env.RELEASEURL }}"
+        echo "AltStore Release Download URL: ${{ env.RELEASEURLALTSTORE }}"
+        
     - name: Upload to Catbox (Without Hash)
-      if: ${{ !secrets.CATBOXHASH }}
+      if: ${{ !env.CATBOXHASH_ENABLED }}
       run: |
         echo "RELEASEURL=$(curl -F "reqtype=fileupload" -F "fileToUpload=@${{ env.patchedspotify }}" https://catbox.moe/user/api.php)" >> $GITHUB_ENV
         echo "RELEASEURLALTSTORE=$(curl -F "reqtype=fileupload" -F "fileToUpload=@${{ env.altpatchedspotify }}" https://catbox.moe/user/api.php)" >> $GITHUB_ENV
-
+        echo "Standard Release Download URL: ${{ env.RELEASEURL }}"
+        echo "AltStore Release Download URL: ${{ env.RELEASEURLALTSTORE }}"
+        
     - name: Extract and Prepare VirusTotal Links
       run: |
         VTSPOTV=$(echo "$VTSPOTV" | sed 's/.*\(https:\/\/.*\)/\1/')
@@ -479,7 +484,7 @@ jobs:
         echo "App .ipa modified and tweaks injected using [my fork](https://github.com/yodaluca23/pyzule-rw) of [Cyan](https://github.com/asdfzxcvbn/pyzule-rw) with [the github Action Workflow.](${{ env.WORKFLOWURL }}) </br>" >> changelog.txt
     
     - name: Construct ChangeLog Pt.7 (Add Version Details & VirusTotal Results)
-      if: ${{ env.VIRUSTOTALKEY != '' }}
+      if: ${{ env.VT_ENABLED }}
       run: |
         echo "<details>" >> changelog.txt
         echo "<summary>Version Details & VirusTotal Results</summary>" >> changelog.txt
