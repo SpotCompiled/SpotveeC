@@ -410,6 +410,7 @@ jobs:
         echo "AltStore Release Download URL: ${{ env.RELEASEURLALTSTORE }}"
         
     - name: Extract and Prepare VirusTotal Links
+      if: ${{ env.VT_ENABLED == 'true' }}
       run: |
         VTSPOTV=$(echo "$VTSPOTV" | sed 's/.*\(https:\/\/.*\)/\1/')
         echo "SpotveeC VT: $VTSPOTV"
