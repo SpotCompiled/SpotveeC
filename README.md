@@ -11,8 +11,12 @@
 
 This is my repo for compiled EeveeSpotify IPAs. EeveeSpotify is a Spotify IOS app tweak that removes ads, removes limited skips, and almost every other premium feature. The only main premium feature that does not work is offline downloads, as this is done server-side.
 
+***
+
+## Installing
+
 <details>
-<summary><h2>Adding to AltStore/SideStore</h2></summary>
+<summary><h3>Adding to AltStore/SideStore</h3></summary>
 
 ### Option One:<br/>
 You can add my repo to AltStore *Beta* or SideStore for automatic updates and conviniance, by following the steps below:<br/>
@@ -27,7 +31,7 @@ You can add my repo to AltStore or SideStore for automatic updates and convinian
 </details>
 
 <details>
-<summary><h2>Adding to Scarlet/Others</h2></summary>
+<summary><h3>Adding to Scarlet/Others</h3></summary>
 
 You can add my repo to Scarlet and other sideloading apps for automatic updates and conviniance, by following the steps below:<br/>
 1. Press and hold the Install button in top right.
@@ -35,9 +39,11 @@ You can add my repo to Scarlet and other sideloading apps for automatic updates 
 3. Enter the URL "[https://spotc-repo.yodaluca.dev/Scarlet%20Repo.json](https://spotc-repo.yodaluca.dev/Scarlet%20Repo.json)"
 4. Now any "SpotC" Apps will show up in Scarlet (or other sideloading apps) where you can install and update my apps easily from within Scarlet.<br/>
 
+</details>
+
 You can also download from [the website](https://spotc.yodaluca.dev) and use with whatever app/service you wish.
 
-</details>
+***
 
 ## How do I add my "Musixmatch token"?<br/>
 In version 2.1.0 the option to use Musixmatch as a lyric provider was added, you must add your user token so that the app may access the Musixmatch API. However, in version 3.2.4 you can now request an anonymous Musixmatch token, simply by pressing the button when prompted for a token, if you want to use your own you can follow the following instructions below.
